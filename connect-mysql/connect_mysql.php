@@ -6,6 +6,17 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
+    <style>
+        div {
+            width: 60vw;
+            display: flex;
+            border: 1px solid lightgray;
+            justify-content: flex-start;
+        }
+        .row {
+            justify-content: center;
+        }
+    </style>
 </head>
 <body>
 <form action="connect_mysql.php" method="post">
@@ -16,6 +27,17 @@
     E-posta Adresiniz:<br />
     <input type="email" name="email" required="required" />
     <input type="submit" value="Send" />
+</form>
+<br>
+<br>
+<form action="connect_mysql.php" method="post">
+    Ad:<br />
+    <input type="text" name="nameSearch" required="required" /><br />
+    Soyad:<br />
+    <input type="text" name="surnameSearch" required="required" /><br />
+    Id:<br />
+    <input type="number" name="idSearch" required="required" />
+    <input type="submit" value="Search" />
 </form>
 
 <?php
@@ -38,12 +60,6 @@ function connect () {
     return $connect;
 }
 
-//deletePersonel ve savePersonel metodları içerisinde aynı şeyler kullanılmaktadır. Kod kalabalığı olmaması ve
-// Clean code olması için bu metodların sadeleştirilmesi gerekiyor.
-// runQuery adında bir  func olsun ve bu func query adında bir parametre alsın.
-// bu parametreye göre veritabanı işlemini yapsın ve savePersonel ve deletePersonel funcları bu yeni
-//yapılan runQuery funcunu kullanıın...
-
 function runQuery($query, $type, $var) {
     $connection = connect();
     $ask = $connection->prepare($query);
@@ -63,33 +79,50 @@ function runQuery($query, $type, $var) {
 }
 
 function savePersonel($name, $surname, $email) {
-        $conSave = connect();
+    $conSave = connect();
 
-        $ask = $conSave->prepare("INSERT INTO personal(name, surname, email) VALUES(?,?,?)");
+    $ask = $conSave->prepare("INSERT INTO personal(name, surname, email) VALUES(?,?,?)");
 
-        $ask->bind_param('sss', $name, $surname, $email);
-        $ask->execute();
+    $ask->bind_param('sss', $name, $surname, $email);
+    $ask->execute();
 
-        if ($conSave->errno > 0) {
-            die("<b>Sorgu Hatası:</b> " . $conSave->error);
-            return "Kaydetme sırasında bir hata oluştu";
-        }
+    if ($conSave->errno > 0) {
+        die("<b>Sorgu Hatası:</b> " . $conSave->error);
+        return "Kaydetme sırasında bir hata oluştu";
+    }
 
 
-        $ask->close();
-        $conSave->close();
-        return "Başarıyla Kaydedildi";
+    $ask->close();
+    $conSave->close();
+    return "Başarıyla Kaydedildi";
 }
-//ad veya soyad veya id parametresi girelim. bulduğu sonuçları ekranda listelesin.
-// adı girince olsun sadece
-// runqueryi kullan. searchPersonel isminde bir func olsun.
-//ad, soyad, id parametreleri alsın ama şimdilik sadece ad ile sorgu yapsın.
-// Trick : Select sorgusu yapacaksın.
 
 function deletePersonel ($id) {
     runQuery("DELETE from personal WHERE personal_id = ?", "i", $id);
 }
 
+function searchPersonel ($nameSearch) {
+
+    $connection = connect();
+
+    $sql = "SELECT personal. personal_id, personal. name, personal. surname FROM school. personal WHERE personal. name = '$nameSearch'";
+
+    $result = $connection->query($sql);
+
+    if ($result->num_rows > 0) {
+        // output data of each row
+        while($row = $result->fetch_assoc()) {
+            echo "<div>
+        <div class='row'>" . $row["personal_id"] . "</div>
+        <div class='row'>" . $row["name"] . "</div>
+        <div class='row'>" . $row["surname"] . "</div>
+        </div>";
+        }
+    } else {
+        echo "0 results";
+    }
+    $connection->close();
+}
 
 if (isset($_POST['name'], $_POST['surname'], $_POST['email'])) {
 
@@ -108,17 +141,30 @@ if (isset($_POST['name'], $_POST['surname'], $_POST['email'])) {
     if (substr($name, 0, 1) == "A") {
         echo savePersonel("1$name", $surname, $email);
     } else {
-        echo savePersonel($name, $surname, $email);
+        savePersonel("$name", $surname, $email);
     }
 }
 
-deletePersonel(3);
+if(isset($_POST['nameSearch'], $_POST['surnameSearch'], $_POST['idSearch'])) {
+    $nameSearch = trim(filter_input(INPUT_POST, 'nameSearch', FILTER_SANITIZE_STRING));
+    $surnameSearch = trim(filter_input(INPUT_POST, 'surnameSearch', FILTER_SANITIZE_STRING));
+    $idSearch = trim(filter_input(INPUT_POST, 'idSearch', FILTER_SANITIZE_NUMBER_INT));
 
-// Arif -> 1Arif
-// Mali -> Mali
+    if (empty($nameSearch) || empty($surnameSearch) || empty($idSearch)) {
+        die("<p>Lütfen formu eksiksiz doldurun!</p>");
+    } else {
+        echo "<br>";
+        echo "<br>";
+        echo "<div>
+        <div>Id</div>
+        <div>Name</div>
+        <div>Surname</div>
+</div>";
+        echo searchPersonel($nameSearch);
+    }
+}
+
 ?>
-
-
 
 </body>
 </html>
